@@ -1,0 +1,72 @@
+```html
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Tricode Studio - Login</title>
+
+    <style>
+        body {
+            background: #020617;
+            color: white;
+            font-family: Arial;
+            text-align: center;
+            margin-top: 100px;
+        }
+
+        input {
+            display: block;
+            margin: 10px auto;
+            padding: 10px;
+            width: 220px;
+            border-radius: 8px;
+            border: none;
+            outline: none;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: cyan;
+            border: none;
+            cursor: pointer;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: #22d3ee;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Tricode Studio</h1>
+    <h2>Login</h2>
+
+    <input type="text" id="user" placeholder="Usuario">
+    <input type="password" id="pass" placeholder="Contraseña">
+
+    <button onclick="login()">Entrar</button>
+
+    <p id="error" style="color:red;"></p>
+
+    <script>
+        function login() {
+            const user = document.getElementById("user").value;
+            const pass = document.getElementById("pass").value;
+
+            if (user === "tricode" && pass === "1234") {
+                localStorage.setItem("auth", "true");
+                window.location.href = "juego.html";
+            } else {
+                document.getElementById("error").innerText =
+                    "Usuario o contraseña incorrectos";
+            }
+        }
+    </script>
+
+</body>
+</html>
+```

@@ -1,0 +1,505 @@
+```html
+<!-- juego.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Tricode: Run & Decode</title>
+
+<style>
+body {
+    background: #020617;
+    color: white;
+    text-align: center;
+    font-family: Arial;
+    overflow: hidden;
+    margin: 0;
+}
+
+h1 {
+    margin-top: 20px;
+}
+
+#top {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+#container {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    height: 520px;
+}
+
+canvas {
+    border: 2px solid cyan;
+    background: rgba(255,255,255,0.02);
+    border-radius: 10px;
+}
+
+#controls {
+    width: 280px;
+    height: 500px;
+    border: 2px solid cyan;
+    padding: 15px;
+    overflow-y: auto;
+    border-radius: 10px;
+    background: rgba(0,0,0,0.3);
+    text-align: left;
+}
+
+.enemy-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.enemy-item img {
+    width: 35px;
+    height: 35px;
+    object-fit: contain;
+}
+
+.enemy-item p {
+    margin: 0;
+    font-size: 16px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Tricode: Run & Decode</h1>
+
+<div id="top">
+    <p>🎯 Puntos: <span id="score">0</span></p>
+    <p>🏆 Récord: <span id="best">0</span></p>
+    <p>❤️ Vidas: <span id="lives">3</span></p>
+    <p>⚡ Nivel: <span id="level">1</span></p>
+</div>
+
+<div id="container">
+    <canvas id="game" width="500" height="500"></canvas>
+
+    <div id="controls">
+        <h3>🎮 Controles</h3>
+        <p>Flechas → mover</p>
+        <p>WASD → disparar</p>
+
+        <h3>👾 Enemigos</h3>
+
+        <div class="enemy-item">
+            <img src="enemigo-normal.png" alt="Normal">
+            <p>Normal → sigue al jugador</p>
+        </div>
+
+        <div class="enemy-item">
+            <img src="enemigo-fast.png" alt="Fast">
+            <p>Fast → más rápido</p>
+        </div>
+
+        <div class="enemy-item">
+            <img src="enemigo-shooter.png" alt="Shooter">
+            <p>Shooter → dispara</p>
+        </div>
+
+        <h3>👹 Boss</h3>
+        <div class="enemy-item">
+            <img src="boss.png" alt="Boss">
+            <p>Aparece cada 5 niveles</p>
+        </div>
+
+        <h3>🔥 Sistema</h3>
+        <p>Power Ups después de cada nivel</p>
+        <p>Boss cada 5 niveles</p>
+        <p>Las vidas se restauran al subir</p>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const playerImg = new Image();
+playerImg.src = "nave-player.png";
+
+const enemyNormalImg = new Image();
+enemyNormalImg.src = "enemigo-normal.png";
+
+const enemyFastImg = new Image();
+enemyFastImg.src = "enemigo-fast.png";
+
+const enemyShooterImg = new Image();
+enemyShooterImg.src = "enemigo-shooter.png";
+
+const bossImg = new Image();
+bossImg.src = "boss.png";
+
+let player;
+let bullets;
+let enemies;
+let bits;
+let enemyBullets;
+let boss = null;
+
+let score;
+let lives;
+let invulnerable;
+let spawnInterval;
+
+let level = 1;
+let enemySpawnSpeed = 3000;
+let enemiesPerLevel = 5;
+let enemiesDefeated = 0;
+
+let keys = {};
+let powerUpMessage = "";
+
+let piercingBullets = false;
+let bouncingBullets = false;
+
+let best = localStorage.getItem("bestScore") || 0;
+document.getElementById("best").innerText = best;
+
+function resetGame() {
+    player = {
+        x: 250,
+        y: 250,
+        size: 40
+    };
+
+    bullets = [];
+    enemies = [];
+    bits = [];
+    enemyBullets = [];
+    boss = null;
+
+    score = 0;
+    lives = 3;
+    invulnerable = 0;
+
+    level = 1;
+    enemySpawnSpeed = 3000;
+    enemiesPerLevel = 5;
+    enemiesDefeated = 0;
+
+    piercingBullets = false;
+    bouncingBullets = false;
+
+    document.getElementById("level").innerText = level;
+    document.getElementById("lives").innerText = lives;
+}
+
+function drawPlayer() {
+    if (invulnerable > 0) {
+        ctx.globalAlpha = 0.5;
+    }
+
+    ctx.drawImage(playerImg, player.x, player.y, 40, 40);
+    ctx.globalAlpha = 1;
+}
+
+function shoot(dx, dy) {
+    bullets.push({
+        x: player.x + 18,
+        y: player.y + 18,
+        dx: dx,
+        dy: dy,
+        size: 4,
+        hasBounced: false
+    });
+}
+
+function spawnEnemy() {
+    let types = ["normal", "fast", "shooter"];
+    let type = types[Math.floor(Math.random() * 3)];
+
+    enemies.push({
+        x: Math.random() * 460,
+        y: Math.random() * 460,
+        type: type,
+        size: 35,
+        cooldown: 0
+    });
+}
+
+function spawnBoss() {
+    boss = {
+        x: 200,
+        y: 80,
+        size: 90,
+        lives: 20,
+        cooldown: 0
+    };
+
+    alert("👹 BOSS APARECIÓ");
+}
+
+function giveRandomPowerUp() {
+    let random = Math.floor(Math.random() * 6);
+
+    if (random === 0) {
+        lives += 1;
+        powerUpMessage = "❤️ Power Up: +1 Vida";
+    }
+
+    if (random === 1) {
+        score += 50;
+        powerUpMessage = "🎯 Power Up: +50 Puntos";
+    }
+
+    if (random === 2) {
+        player.size = 45;
+        powerUpMessage = "⚡ Power Up: Nave Mejorada";
+    }
+
+    if (random === 3) {
+        invulnerable = 180;
+        powerUpMessage = "🛡️ Power Up: Invulnerable";
+    }
+
+    if (random === 4) {
+        piercingBullets = true;
+        bouncingBullets = false;
+        powerUpMessage = "💥 Power Up: Balas Perforantes";
+    }
+
+    if (random === 5) {
+        bouncingBullets = true;
+        piercingBullets = false;
+        powerUpMessage = "🔁 Power Up: Balas Rebote";
+    }
+
+    alert(powerUpMessage);
+}
+
+function hit(a, b) {
+    return (
+        a.x < b.x + b.size &&
+        a.x + a.size > b.x &&
+        a.y < b.y + b.size &&
+        a.y + a.size > b.y
+    );
+}
+
+document.addEventListener("keydown", function(e) {
+    keys[e.key] = true;
+
+    if (e.key === "w") shoot(0, -6);
+    if (e.key === "s") shoot(0, 6);
+    if (e.key === "a") shoot(-6, 0);
+    if (e.key === "d") shoot(6, 0);
+});
+
+document.addEventListener("keyup", function(e) {
+    keys[e.key] = false;
+});
+
+function loop() {
+    ctx.clearRect(0, 0, 500, 500);
+
+    let playerSpeed = 4;
+
+    if (keys["ArrowUp"]) player.y -= playerSpeed;
+    if (keys["ArrowDown"]) player.y += playerSpeed;
+    if (keys["ArrowLeft"]) player.x -= playerSpeed;
+    if (keys["ArrowRight"]) player.x += playerSpeed;
+
+    player.x = Math.max(0, Math.min(460, player.x));
+    player.y = Math.max(0, Math.min(460, player.y));
+
+    if (invulnerable > 0) {
+        invulnerable--;
+    }
+
+    drawPlayer();
+
+    bullets.forEach((b, i) => {
+        b.x += b.dx;
+        b.y += b.dy;
+
+        ctx.fillStyle = "yellow";
+        ctx.fillRect(b.x, b.y, 4, 4);
+    });
+
+    enemies.forEach((e, ei) => {
+        let speed = e.type === "fast" ? 0.04 : 0.01;
+
+        e.x += (player.x - e.x) * speed;
+        e.y += (player.y - e.y) * speed;
+
+        if (e.type === "normal") {
+            ctx.drawImage(enemyNormalImg, e.x, e.y, 35, 35);
+        }
+
+        if (e.type === "fast") {
+            ctx.drawImage(enemyFastImg, e.x, e.y, 35, 35);
+        }
+
+        if (e.type === "shooter") {
+            ctx.drawImage(enemyShooterImg, e.x, e.y, 35, 35);
+
+            e.cooldown--;
+
+            if (e.cooldown <= 0) {
+                enemyBullets.push({
+                    x: e.x + 17,
+                    y: e.y + 17,
+                    dx: (player.x - e.x) * 0.02,
+                    dy: (player.y - e.y) * 0.02,
+                    size: 4
+                });
+
+                e.cooldown = 80;
+            }
+        }
+
+        bullets.forEach((b, bi) => {
+            if (hit(b, e)) {
+                enemies.splice(ei, 1);
+
+                if (!piercingBullets && !bouncingBullets) {
+                    bullets.splice(bi, 1);
+                }
+
+                if (bouncingBullets) {
+                    if (!b.hasBounced) {
+                        let nextEnemy = enemies.find(enemy => enemy !== e);
+
+                        if (nextEnemy) {
+                            b.dx = (nextEnemy.x - b.x) * 0.05;
+                            b.dy = (nextEnemy.y - b.y) * 0.05;
+                            b.hasBounced = true;
+                        } else {
+                            bullets.splice(bi, 1);
+                        }
+                    } else {
+                        bullets.splice(bi, 1);
+                    }
+                }
+
+                score += 10;
+                enemiesDefeated++;
+
+                if (enemiesDefeated >= enemiesPerLevel) {
+                    level++;
+                    enemiesDefeated = 0;
+                    enemiesPerLevel += 3;
+
+                    lives = 3;
+                    giveRandomPowerUp();
+
+                    enemySpawnSpeed = Math.max(900, enemySpawnSpeed - 250);
+
+                    clearInterval(spawnInterval);
+                    spawnInterval = setInterval(spawnEnemy, enemySpawnSpeed);
+
+                    document.getElementById("level").innerText = level;
+                    document.getElementById("lives").innerText = lives;
+
+                    alert("⚡ NIVEL " + level + " — Vidas restauradas ❤️");
+
+                    if (level % 5 === 0) {
+                        spawnBoss();
+                    }
+                }
+            }
+        });
+    });
+
+    enemyBullets.forEach((b, i) => {
+        b.x += b.dx;
+        b.y += b.dy;
+
+        ctx.fillStyle = "orange";
+        ctx.fillRect(b.x, b.y, b.size, b.size);
+
+        if (hit(player, b) && invulnerable <= 0) {
+            lives--;
+            invulnerable = 60;
+            enemyBullets.splice(i, 1);
+        }
+    });
+
+    if (boss) {
+        ctx.drawImage(bossImg, boss.x, boss.y, boss.size, boss.size);
+
+        boss.cooldown--;
+
+        if (boss.cooldown <= 0) {
+            enemyBullets.push({
+                x: boss.x + 45,
+                y: boss.y + 45,
+                dx: (player.x - boss.x) * 0.015,
+                dy: (player.y - boss.y) * 0.015,
+                size: 8
+            });
+
+            boss.cooldown = 50;
+        }
+
+        bullets.forEach((b, bi) => {
+            if (hit(b, boss)) {
+                bullets.splice(bi, 1);
+                boss.lives--;
+
+                if (boss.lives <= 0) {
+                    score += 200;
+                    boss = null;
+                    alert("🔥 BOSS DERROTADO");
+                }
+            }
+        });
+    }
+
+    if (Math.random() < 0.005) {
+        bits.push({
+            x: Math.random() * 480,
+            y: Math.random() * 480,
+            size: 8
+        });
+    }
+
+    bits.forEach((b, i) => {
+        ctx.fillStyle = "lime";
+        ctx.fillRect(b.x, b.y, 8, 8);
+
+        if (hit(player, b)) {
+            score += 5;
+            bits.splice(i, 1);
+        }
+    });
+
+    document.getElementById("score").innerText = score;
+    document.getElementById("lives").innerText = lives;
+
+    if (score > best) {
+        best = score;
+        localStorage.setItem("bestScore", best);
+        document.getElementById("best").innerText = best;
+    }
+
+    if (lives <= 0) {
+        alert("💀 GAME OVER");
+
+        clearInterval(spawnInterval);
+        resetGame();
+        spawnInterval = setInterval(spawnEnemy, enemySpawnSpeed);
+    }
+
+    requestAnimationFrame(loop);
+}
+
+resetGame();
+spawnInterval = setInterval(spawnEnemy, enemySpawnSpeed);
+loop();
+</script>
+
+</body>
+</html>
+```
