@@ -69,6 +69,31 @@ canvas {
     margin: 0;
     font-size: 16px;
 }
+#notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 255, 255, 0.12);
+    border: 2px solid cyan;
+    color: white;
+    padding: 14px 22px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: bold;
+    box-shadow: 0 0 15px rgba(0,255,255,0.25);
+    opacity: 0;
+    transform: translateY(-20px);
+    transition: all 0.35s ease;
+    z-index: 9999;
+    pointer-events: none;
+    min-width: 220px;
+    text-align: center;
+}
+
+#notification.show {
+    opacity: 1;
+    transform: translateY(0);
+}
 </style>
 </head>
 
@@ -120,11 +145,22 @@ canvas {
         <p>Boss cada 5 niveles</p>
     </div>
 </div>
-
+<div id="notification"></div>
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
+function showNotification(message) {
+    const box = document.getElementById("notification");
 
+    box.innerText = message;
+    box.classList.add("show");
+
+    clearTimeout(box.hideTimeout);
+
+    box.hideTimeout = setTimeout(() => {
+        box.classList.remove("show");
+    }, 2200);
+}
 /* IMÁGENES */
 const playerImg = new Image();
 playerImg.src = "nave-player.png";
@@ -261,7 +297,7 @@ function spawnBoss() {
         cooldown: 0
     };
 
-    alert("👹 BOSS APARECIÓ");
+    showNotification("👹 BOSS APARECIÓ");
 }
 
 /* POWER UPS */
@@ -330,7 +366,7 @@ function giveRandomPowerUp() {
         powerUpMessage = "🛡️ Escudo x3 Golpes";
     }
 
-    alert(powerUpMessage);
+    showNotification(powerUpMessage);
 }
 
 /* COLISIÓN */
@@ -464,7 +500,7 @@ function loop() {
                     document.getElementById("level").innerText = level;
                     document.getElementById("lives").innerText = lives;
 
-                    alert("⚡ NIVEL " + level + " ❤️");
+                    showNotification("⚡ NIVEL " + level + " ❤️");
 
                     /* BOSS SOLO CADA 5 NIVELES */
                     if (level % 5 === 0) {
@@ -537,7 +573,7 @@ function loop() {
                 if (boss.lives <= 0) {
                     score += 200;
                     boss = null;
-                    alert("🔥 BOSS DERROTADO");
+                    showNotification("🔥 BOSS DERROTADO");
                 }
             }
         });
@@ -574,7 +610,7 @@ function loop() {
 
     /* GAME OVER */
     if (lives <= 0) {
-        alert("💀 GAME OVER");
+        showNotification("💀 GAME OVER");
 
         clearInterval(spawnInterval);
         resetGame();
