@@ -115,9 +115,9 @@ canvas {
         </div>
 
         <h3>🔥 Sistema</h3>
-        <p>Power Ups después de cada nivel</p>
+        <p>Subes de nivel cada 50 puntos</p>
+        <p>Power Ups automáticos</p>
         <p>Boss cada 5 niveles</p>
-        <p>Las vidas se restauran al subir</p>
     </div>
 </div>
 
@@ -125,6 +125,7 @@ canvas {
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
+/* IMÁGENES */
 const playerImg = new Image();
 playerImg.src = "nave-player.png";
 
@@ -140,6 +141,7 @@ enemyShooterImg.src = "enemigo-shooter.png";
 const bossImg = new Image();
 bossImg.src = "boss.png";
 
+/* VARIABLES */
 let player;
 let bullets;
 let enemies;
@@ -153,9 +155,8 @@ let invulnerable;
 let spawnInterval;
 
 let level = 1;
+let nextLevelScore = 50;
 let enemySpawnSpeed = 3000;
-let enemiesPerLevel = 5;
-let enemiesDefeated = 0;
 
 let keys = {};
 let powerUpMessage = "";
@@ -163,9 +164,15 @@ let powerUpMessage = "";
 let piercingBullets = false;
 let bouncingBullets = false;
 
+let playerSpeed = 4;
+let shootPower = 1;
+let bossDamage = 1;
+let shieldHits = 0;
+
 let best = localStorage.getItem("bestScore") || 0;
 document.getElementById("best").innerText = best;
 
+/* RESET */
 function resetGame() {
     player = {
         x: 250,
@@ -184,37 +191,53 @@ function resetGame() {
     invulnerable = 0;
 
     level = 1;
+    nextLevelScore = 50;
     enemySpawnSpeed = 3000;
-    enemiesPerLevel = 5;
-    enemiesDefeated = 0;
 
     piercingBullets = false;
     bouncingBullets = false;
+
+    playerSpeed = 4;
+    shootPower = 1;
+    bossDamage = 1;
+    shieldHits = 0;
 
     document.getElementById("level").innerText = level;
     document.getElementById("lives").innerText = lives;
 }
 
+/* JUGADOR */
 function drawPlayer() {
     if (invulnerable > 0) {
         ctx.globalAlpha = 0.5;
     }
 
-    ctx.drawImage(playerImg, player.x, player.y, 40, 40);
+    ctx.drawImage(
+        playerImg,
+        player.x,
+        player.y,
+        player.size,
+        player.size
+    );
+
     ctx.globalAlpha = 1;
 }
 
+/* DISPARO */
 function shoot(dx, dy) {
-    bullets.push({
-        x: player.x + 18,
-        y: player.y + 18,
-        dx: dx,
-        dy: dy,
-        size: 4,
-        hasBounced: false
-    });
+    for (let i = 0; i < shootPower; i++) {
+        bullets.push({
+            x: player.x + 18 + (i * 8),
+            y: player.y + 18,
+            dx: dx,
+            dy: dy,
+            size: 4,
+            hasBounced: false
+        });
+    }
 }
 
+/* ENEMIGOS */
 function spawnEnemy() {
     let types = ["normal", "fast", "shooter"];
     let type = types[Math.floor(Math.random() * 3)];
@@ -228,6 +251,7 @@ function spawnEnemy() {
     });
 }
 
+/* BOSS */
 function spawnBoss() {
     boss = {
         x: 200,
@@ -240,44 +264,76 @@ function spawnBoss() {
     alert("👹 BOSS APARECIÓ");
 }
 
+/* POWER UPS */
 function giveRandomPowerUp() {
-    let random = Math.floor(Math.random() * 6);
+    let random = Math.floor(Math.random() * 12);
 
     if (random === 0) {
         lives += 1;
-        powerUpMessage = "❤️ Power Up: +1 Vida";
+        powerUpMessage = "❤️ +1 Vida";
     }
 
     if (random === 1) {
         score += 50;
-        powerUpMessage = "🎯 Power Up: +50 Puntos";
+        powerUpMessage = "🎯 +50 Puntos";
     }
 
     if (random === 2) {
         player.size = 45;
-        powerUpMessage = "⚡ Power Up: Nave Mejorada";
+        powerUpMessage = "⚡ Nave Mejorada";
     }
 
     if (random === 3) {
         invulnerable = 180;
-        powerUpMessage = "🛡️ Power Up: Invulnerable";
+        powerUpMessage = "🛡️ Invulnerabilidad";
     }
 
     if (random === 4) {
         piercingBullets = true;
         bouncingBullets = false;
-        powerUpMessage = "💥 Power Up: Balas Perforantes";
+        powerUpMessage = "💥 Balas Perforantes";
     }
 
     if (random === 5) {
         bouncingBullets = true;
         piercingBullets = false;
-        powerUpMessage = "🔁 Power Up: Balas Rebote";
+        powerUpMessage = "🔁 Balas Rebote";
+    }
+
+    if (random === 6) {
+        playerSpeed = 6;
+        powerUpMessage = "🚀 Velocidad Aumentada";
+    }
+
+    if (random === 7) {
+        shootPower = 2;
+        powerUpMessage = "🔥 Disparo Doble";
+    }
+
+    if (random === 8) {
+        score += 100;
+        powerUpMessage = "💰 Bonus Grande +100";
+    }
+
+    if (random === 9) {
+        enemySpawnSpeed += 400;
+        powerUpMessage = "❄️ Enemigos Más Lentos";
+    }
+
+    if (random === 10) {
+        bossDamage = 2;
+        powerUpMessage = "⚔️ Daño Extra al Boss";
+    }
+
+    if (random === 11) {
+        shieldHits = 3;
+        powerUpMessage = "🛡️ Escudo x3 Golpes";
     }
 
     alert(powerUpMessage);
 }
 
+/* COLISIÓN */
 function hit(a, b) {
     return (
         a.x < b.x + b.size &&
@@ -287,6 +343,7 @@ function hit(a, b) {
     );
 }
 
+/* CONTROLES */
 document.addEventListener("keydown", function(e) {
     keys[e.key] = true;
 
@@ -300,10 +357,9 @@ document.addEventListener("keyup", function(e) {
     keys[e.key] = false;
 });
 
+/* LOOP */
 function loop() {
     ctx.clearRect(0, 0, 500, 500);
-
-    let playerSpeed = 4;
 
     if (keys["ArrowUp"]) player.y -= playerSpeed;
     if (keys["ArrowDown"]) player.y += playerSpeed;
@@ -313,12 +369,11 @@ function loop() {
     player.x = Math.max(0, Math.min(460, player.x));
     player.y = Math.max(0, Math.min(460, player.y));
 
-    if (invulnerable > 0) {
-        invulnerable--;
-    }
+    if (invulnerable > 0) invulnerable--;
 
     drawPlayer();
 
+    /* BALAS */
     bullets.forEach((b, i) => {
         b.x += b.dx;
         b.y += b.dy;
@@ -327,6 +382,7 @@ function loop() {
         ctx.fillRect(b.x, b.y, 4, 4);
     });
 
+    /* ENEMIGOS */
     enemies.forEach((e, ei) => {
         let speed = e.type === "fast" ? 0.04 : 0.01;
 
@@ -384,34 +440,52 @@ function loop() {
                 }
 
                 score += 10;
-                enemiesDefeated++;
 
-                if (enemiesDefeated >= enemiesPerLevel) {
+                /* SUBIR NIVEL CADA 50 PUNTOS */
+                if (score >= nextLevelScore) {
                     level++;
-                    enemiesDefeated = 0;
-                    enemiesPerLevel += 3;
+                    nextLevelScore += 50;
 
                     lives = 3;
                     giveRandomPowerUp();
 
-                    enemySpawnSpeed = Math.max(900, enemySpawnSpeed - 250);
+                    enemySpawnSpeed = Math.max(
+                        900,
+                        enemySpawnSpeed - 250
+                    );
 
                     clearInterval(spawnInterval);
-                    spawnInterval = setInterval(spawnEnemy, enemySpawnSpeed);
+
+                    spawnInterval = setInterval(
+                        spawnEnemy,
+                        enemySpawnSpeed
+                    );
 
                     document.getElementById("level").innerText = level;
                     document.getElementById("lives").innerText = lives;
 
-                    alert("⚡ NIVEL " + level + " — Vidas restauradas ❤️");
+                    alert("⚡ NIVEL " + level + " ❤️");
 
+                    /* BOSS SOLO CADA 5 NIVELES */
                     if (level % 5 === 0) {
                         spawnBoss();
                     }
                 }
             }
         });
+
+        if (hit(player, e) && invulnerable <= 0) {
+            if (shieldHits > 0) {
+                shieldHits--;
+            } else {
+                lives--;
+            }
+
+            invulnerable = 60;
+        }
     });
 
+    /* BALAS ENEMIGAS */
     enemyBullets.forEach((b, i) => {
         b.x += b.dx;
         b.y += b.dy;
@@ -420,14 +494,26 @@ function loop() {
         ctx.fillRect(b.x, b.y, b.size, b.size);
 
         if (hit(player, b) && invulnerable <= 0) {
-            lives--;
+            if (shieldHits > 0) {
+                shieldHits--;
+            } else {
+                lives--;
+            }
+
             invulnerable = 60;
             enemyBullets.splice(i, 1);
         }
     });
 
+    /* BOSS */
     if (boss) {
-        ctx.drawImage(bossImg, boss.x, boss.y, boss.size, boss.size);
+        ctx.drawImage(
+            bossImg,
+            boss.x,
+            boss.y,
+            boss.size,
+            boss.size
+        );
 
         boss.cooldown--;
 
@@ -446,7 +532,7 @@ function loop() {
         bullets.forEach((b, bi) => {
             if (hit(b, boss)) {
                 bullets.splice(bi, 1);
-                boss.lives--;
+                boss.lives -= bossDamage;
 
                 if (boss.lives <= 0) {
                     score += 200;
@@ -457,6 +543,7 @@ function loop() {
         });
     }
 
+    /* BITS */
     if (Math.random() < 0.005) {
         bits.push({
             x: Math.random() * 480,
@@ -475,6 +562,7 @@ function loop() {
         }
     });
 
+    /* UI */
     document.getElementById("score").innerText = score;
     document.getElementById("lives").innerText = lives;
 
@@ -484,12 +572,17 @@ function loop() {
         document.getElementById("best").innerText = best;
     }
 
+    /* GAME OVER */
     if (lives <= 0) {
         alert("💀 GAME OVER");
 
         clearInterval(spawnInterval);
         resetGame();
-        spawnInterval = setInterval(spawnEnemy, enemySpawnSpeed);
+
+        spawnInterval = setInterval(
+            spawnEnemy,
+            enemySpawnSpeed
+        );
     }
 
     requestAnimationFrame(loop);
