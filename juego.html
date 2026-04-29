@@ -289,16 +289,24 @@ function spawnEnemy() {
 
 /* BOSS */
 function spawnBoss() {
+    clearInterval(spawnInterval);
+
+    enemies = [];
+    enemyBullets = [];
+
     boss = {
-        x: 200,
-        y: 80,
-        size: 90,
+        x: 180,
+        y: 60,
+        size: 120,
         lives: 20,
-        cooldown: 0
+        cooldown: 0,
+        direction: 1,
+        speed: 2
     };
 
     showNotification("👹 BOSS APARECIÓ");
 }
+
 
 /* POWER UPS */
 function giveRandomPowerUp() {
@@ -481,6 +489,21 @@ function loop() {
                 if (score >= nextLevelScore) {
                     level++;
                     nextLevelScore += 50;
+                    if (level > 20) {
+    showNotification("🏆 FELICIDADES — TERMINASTE EL JUEGO");
+
+    clearInterval(spawnInterval);
+
+    setTimeout(() => {
+        resetGame();
+        spawnInterval = setInterval(
+            spawnEnemy,
+            enemySpawnSpeed
+        );
+    }, 3000);
+
+    return;
+}
 
                     lives = 3;
                     giveRandomPowerUp();
@@ -503,9 +526,9 @@ function loop() {
                     showNotification("⚡ NIVEL " + level + " ❤️");
 
                     /* BOSS SOLO CADA 5 NIVELES */
-                    if (level % 5 === 0) {
-                        spawnBoss();
-                    }
+              if (level % 5 === 0 && !boss && score >= (level * 40)) {
+    spawnBoss();
+}
                 }
             }
         });
@@ -541,43 +564,63 @@ function loop() {
         }
     });
 
-    /* BOSS */
-    if (boss) {
-        ctx.drawImage(
-            bossImg,
-            boss.x,
-            boss.y,
-            boss.size,
-            boss.size
-        );
+/* BOSS */
+if (boss) {
+    /* movimiento lateral del boss */
+    boss.x += boss.speed * boss.direction;
 
-        boss.cooldown--;
-
-        if (boss.cooldown <= 0) {
-            enemyBullets.push({
-                x: boss.x + 45,
-                y: boss.y + 45,
-                dx: (player.x - boss.x) * 0.015,
-                dy: (player.y - boss.y) * 0.015,
-                size: 8
-            });
-
-            boss.cooldown = 50;
-        }
-
-        bullets.forEach((b, bi) => {
-            if (hit(b, boss)) {
-                bullets.splice(bi, 1);
-                boss.lives -= bossDamage;
-
-                if (boss.lives <= 0) {
-                    score += 200;
-                    boss = null;
-                    showNotification("🔥 BOSS DERROTADO");
-                }
-            }
-        });
+    if (boss.x <= 20 || boss.x >= 360) {
+        boss.direction *= -1;
     }
+
+    ctx.drawImage(
+        bossImg,
+        boss.x,
+        boss.y,
+        boss.size,
+        boss.size
+    );
+
+    boss.cooldown--;
+
+    /* disparo del boss */
+    if (boss.cooldown <= 0) {
+        enemyBullets.push({
+            x: boss.x + 55,
+            y: boss.y + 80,
+            dx: (player.x - boss.x) * 0.015,
+            dy: (player.y - boss.y) * 0.015,
+            size: 8
+        });
+
+        boss.cooldown = 45;
+    }
+
+    /* daño al boss */
+    bullets.forEach((b, bi) => {
+        if (hit(b, boss)) {
+            bullets.splice(bi, 1);
+
+            boss.lives -= bossDamage;
+
+            if (boss.lives <= 0) {
+                score += 200;
+
+                boss = null;
+
+                showNotification("🔥 BOSS DERROTADO");
+
+                clearInterval(spawnInterval);
+
+                spawnInterval = setInterval(
+                    spawnEnemy,
+                    enemySpawnSpeed
+                );
+            }
+        }
+    });
+}
+            
 
     /* BITS */
     if (Math.random() < 0.005) {
